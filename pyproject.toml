@@ -1,7 +1,11 @@
 [project]
 name = "114s-535505-ai-hw2"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI HW2: SimCLR Self-Supervised Learning on CIFAR-10"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "matplotlib>=3.7",
+]
