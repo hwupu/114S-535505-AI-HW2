@@ -134,7 +134,7 @@ def knn_monitor(model: nn.Module, train_loader: DataLoader, test_loader: DataLoa
 
         # Predicted class = class with highest total weight
         predictions = vote_scores.argmax(dim=1)
-        correct += (predictions == batch_labels).sum().item()
+        correct += (predictions == batch_labels.to(device)).sum().item()
         total   += len(batch_labels)
 
     return correct / total
