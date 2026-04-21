@@ -134,6 +134,8 @@ def main():
                         help="Override SSL_EPOCHS from config.py")
     parser.add_argument("--skip-supervised", action="store_true",
                         help="Skip the supervised learning baseline (Experiment 2)")
+    parser.add_argument("--random-baseline", action="store_true",
+                        help="Run Experiment 3: random frozen backbone (lower bound)")
     args = parser.parse_args()
 
     # Apply command-line overrides to config
@@ -242,14 +244,46 @@ def main():
         sl_final_acc = evaluate_accuracy(sl_model, sl_test_loader, device)
 
     # ------------------------------------------------------------------
+    # Experiment 3: Random Frozen Backbone (lower bound)
+    # ------------------------------------------------------------------
+    random_lp_acc = None
+    if args.random_baseline:
+        print("\n" + "="*65)
+        print("  EXPERIMENT 3: Random Frozen Backbone (lower bound)")
+        print("  No training — linear probing on top of random features")
+        print("="*65)
+
+        # Create a model with random weights and skip training entirely.
+        # This shows the floor: how well a linear layer can do when the
+        # features it receives are completely meaningless.
+        random_model = SimCLRModel(
+            pretrained_backbone=False,
+            projector_hidden=config.PROJECTOR_HIDDEN_DIM,
+            projector_out=config.PROJECTOR_OUT_DIM,
+        ).to(device)
+
+        random_lp_acc = linear_probing(
+            model=random_model,
+            train_loader=eval_train_loader,
+            test_loader=eval_test_loader,
+            device=device,
+            num_classes=config.NUM_CLASSES,
+            epochs=config.LP_EPOCHS,
+            lr=config.LP_LR,
+            weight_decay=config.LP_WEIGHT_DECAY,
+        )
+
+    # ------------------------------------------------------------------
     # Print and save summary
     # ------------------------------------------------------------------
     print("\n" + "="*65)
     print("  RESULTS SUMMARY")
     print("="*65)
-    print(f"  SSL + Linear Probing accuracy : {ssl_lp_acc*100:.2f}%")
+    if random_lp_acc is not None:
+        print(f"  Random Frozen Backbone        : {random_lp_acc*100:.2f}%  ← lower bound")
+    print(f"  SSL + Linear Probing          : {ssl_lp_acc*100:.2f}%")
     if sl_final_acc is not None:
-        print(f"  Supervised Learning accuracy  : {sl_final_acc*100:.2f}%")
+        print(f"  Supervised Learning           : {sl_final_acc*100:.2f}%  ← upper bound")
     print("="*65)
 
     # Write summary to a text file for easy reference when writing your report
@@ -258,6 +292,8 @@ def main():
         f.write(f"Temperature         : {config.TEMPERATURE}\n")
         f.write(f"Batch size          : {config.SSL_BATCH_SIZE}\n")
         f.write(f"SSL epochs          : {config.SSL_EPOCHS}\n")
+        if random_lp_acc is not None:
+            f.write(f"Random frozen acc   : {random_lp_acc*100:.2f}%\n")
         f.write(f"SSL+LinearProbe acc : {ssl_lp_acc*100:.2f}%\n")
         if sl_final_acc is not None:
             f.write(f"Supervised acc      : {sl_final_acc*100:.2f}%\n")
