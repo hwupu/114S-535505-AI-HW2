@@ -136,6 +136,8 @@ def main():
                         help="Override TEMPERATURE from config.py (ablation study)")
     parser.add_argument("--ssl-epochs",      type=int,   default=None,
                         help="Override SSL_EPOCHS from config.py")
+    parser.add_argument("--augmentation",     type=str,   default=None,
+                        help="SSL augmentation: crop,cutout,color,sobel,noise,blur,rotate,full,best")
     parser.add_argument("--skip-supervised", action="store_true",
                         help="Skip the supervised learning baseline (Experiment 2)")
     parser.add_argument("--random-baseline", action="store_true",
@@ -150,6 +152,7 @@ def main():
     if args.batch_size  is not None: config.SSL_BATCH_SIZE = args.batch_size
     if args.temperature is not None: config.TEMPERATURE    = args.temperature
     if args.ssl_epochs  is not None: config.SSL_EPOCHS     = args.ssl_epochs
+    if args.augmentation is not None: config.AUGMENTATION  = args.augmentation
 
     # ------------------------------------------------------------------
     # Setup directories and device
@@ -164,6 +167,7 @@ def main():
     print(f"  Batch size : {config.SSL_BATCH_SIZE}")
     print(f"  Temperature: {config.TEMPERATURE}")
     print(f"  SSL epochs : {config.SSL_EPOCHS}")
+    print(f"  Augment    : {config.AUGMENTATION}")
     print("="*65)
 
     device = get_device()
@@ -173,7 +177,8 @@ def main():
     # ------------------------------------------------------------------
     print("\nPreparing data loaders...")
     ssl_loader             = get_ssl_loader(config.DATASET, config.DATA_DIR,
-                                            config.SSL_BATCH_SIZE, config.NUM_WORKERS)
+                                            config.SSL_BATCH_SIZE, config.NUM_WORKERS,
+                                            config.AUGMENTATION)
     eval_train_loader, \
     eval_test_loader       = get_eval_loaders(config.DATASET, config.DATA_DIR,
                                               config.SSL_BATCH_SIZE, config.NUM_WORKERS)
@@ -299,6 +304,7 @@ def main():
     summary_path = os.path.join(config.RESULTS_DIR, "summary.txt")
     with open(summary_path, "w") as f:
         f.write(f"Dataset             : {config.DATASET}\n")
+        f.write(f"Augmentation        : {config.AUGMENTATION}\n")
         f.write(f"Temperature         : {config.TEMPERATURE}\n")
         f.write(f"Batch size          : {config.SSL_BATCH_SIZE}\n")
         f.write(f"SSL epochs          : {config.SSL_EPOCHS}\n")

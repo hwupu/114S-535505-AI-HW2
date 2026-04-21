@@ -18,6 +18,14 @@ just change a value here instead of hunting through multiple files.
 #     first, then run linear probing on these datasets.
 DATASET = 'cifar10'
 
+# ---------------------------------------------------------------------------
+# SSL Augmentation Strategy
+# ---------------------------------------------------------------------------
+# Which augmentation pipeline to use for SSL training.
+# Options: crop, cutout, color, sobel, noise, blur, rotate, full, best
+# See dataset.py for a description of each strategy.
+AUGMENTATION = 'best'
+
 # Number of classes — derived automatically from DATASET.
 # If you add a custom dataset, set this manually.
 _CLASS_COUNTS = {'cifar10': 10, 'stl10': 10, 'flowers102': 102, 'food101': 101}

@@ -1,4 +1,4 @@
-# AI HW2: SimCLR Self-Supervised Learning on CIFAR-10
+# AI HW2: SimCLR Self-Supervised Learning
 
 **Course:** 535505 Artificial Intelligence, NYCU Spring 2026
 **Due:** 2026-05-03
@@ -12,24 +12,41 @@ The core idea: for each image, generate two randomly augmented versions. Train t
 ## Project structure
 
 ```
-main.py        — Entry point; runs all experiments
-config.py      — All hyperparameters in one place (edit here for ablations)
-dataset.py     — CIFAR-10 data loading + SimCLR double-augmentation pipeline
-model.py       — Modified ResNet-18 backbone, projector head, supervised model
-loss.py        — NT-Xent contrastive loss
-evaluate.py    — kNN monitor + linear probing evaluation
-trainer.py     — SSL and supervised learning training loops
+main.py                    — Entry point; runs all experiments
+config.py                  — All hyperparameters in one place (edit here for ablations)
+dataset.py                 — Data loading + augmentation pipelines for 4 datasets
+model.py                   — Modified ResNet-18 backbone, projector head, supervised model
+loss.py                    — NT-Xent contrastive loss
+evaluate.py                — kNN monitor + linear probing evaluation
+trainer.py                 — SSL and supervised learning training loops
+
+simclr_colab.ipynb         — Main Colab notebook (all experiments, multi-dataset)
+ablation_temperature.ipynb — Temperature ablation (τ = 0.1 / 0.5 / 5.0)
+ablation_batchsize.ipynb   — Batch size ablation (32 → 512)
+ablation_augmentation.ipynb— Augmentation strategy ablation (9 strategies)
 ```
+
+## Supported datasets
+
+All datasets are resized to **32×32** to match the modified ResNet-18 backbone.
+All classes are used — no subsampling.
+
+| Dataset | Classes | SSL training images | Notes |
+|---|---|---|---|
+| `cifar10` | 10 | 50k | Default |
+| `stl10` | 10 | 105k | Uses train+unlabeled for SSL |
+| `flowers102` | 102 | ~1k | Transfer learning target |
+| `food101` | 101 | 75k | Transfer learning target |
 
 ## Key concepts
 
 | Term | Plain English |
 |---|---|
-| **Backbone** | ResNet-18 network that converts a 32×32 image into a 512-dimensional feature vector |
-| **Projector head** | Small MLP on top of the backbone; used only during SSL training, then discarded |
-| **NT-Xent loss** | "Find which of the 2N images is the twin of this one" — a matching game that forces the backbone to learn meaningful features |
-| **kNN monitor** | During training, periodically check if backbone features are useful — without needing labels |
-| **Linear probing** | After SSL training: freeze the backbone, attach one linear layer, train only that layer — the standard benchmark for SSL quality |
+| **Backbone** | ResNet-18 that converts a 32×32 image into a 512-dim feature vector |
+| **Projector head** | Small MLP on top of the backbone; used only during SSL, then discarded |
+| **NT-Xent loss** | "Find which of the 2N images is the twin of this one" — forces the backbone to learn meaningful features |
+| **kNN monitor** | Periodically checks if backbone features are useful — without needing labels |
+| **Linear probing** | Freeze backbone, train one linear layer — the standard SSL quality benchmark |
 
 ## How to run
 
@@ -57,11 +74,8 @@ This will:
 
 ### Step 3 — If you run out of GPU memory
 
-Reduce the batch size:
-
 ```bash
 uv run python main.py --batch-size 128
-# or even smaller:
 uv run python main.py --batch-size 64
 ```
 
@@ -71,31 +85,74 @@ uv run python main.py --batch-size 64
 uv run python main.py --skip-supervised
 ```
 
-## Ablation experiments (optional report sections)
+## Command-line flags
 
-All settings can be overridden from the command line:
+| Flag | Default | Description |
+|---|---|---|
+| `--dataset` | `cifar10` | Dataset: `cifar10`, `stl10`, `flowers102`, `food101` |
+| `--augmentation` | `best` | SSL augmentation strategy (see table below) |
+| `--batch-size` | `256` | Override SSL batch size |
+| `--temperature` | `0.5` | Override NT-Xent temperature |
+| `--ssl-epochs` | `200` | Override SSL training epochs |
+| `--skip-supervised` | off | Skip Experiment 2 (supervised baseline) |
+| `--random-baseline` | off | Run Experiment 3 (random frozen backbone lower bound) |
 
+## Augmentation strategies
+
+Select with `--augmentation <name>`. All strategies use CIFAR-10 statistics for normalization (except `sobel`).
+
+| Name | Pipeline | What the model learns to ignore |
+|---|---|---|
+| `best` | Crop + flip + colour + grayscale | Position, scale, colour ← **paper recommendation, default** |
+| `crop` | RandomResizedCrop + flip | Position, scale only |
+| `color` | ColorJitter + grayscale | Colour only |
+| `rotate` | RandomRotation ± 30° + flip | Orientation |
+| `blur` | GaussianBlur + flip | Fine texture / sharpness |
+| `noise` | Gaussian additive noise + flip | Pixel-level perturbations |
+| `cutout` | RandomErasing + flip | Random rectangular occlusion |
+| `sobel` | Sobel edge filter | Everything except edge structure |
+| `full` | All of the above combined | All invariances simultaneously |
+
+Example:
 ```bash
-# Temperature ablation (default is 0.5)
-uv run python main.py --temperature 0.1   # very sharp — strong gradient signal
-uv run python main.py --temperature 5.0   # very flat  — weak gradient signal
+uv run python main.py --augmentation rotate
+uv run python main.py --augmentation crop
+```
 
-# Batch size ablation
+## Ablation experiments
+
+### Temperature ablation
+```bash
+uv run python main.py --temperature 0.1   # sharp: strong gradient, may overfit easy pairs
+uv run python main.py --temperature 0.5   # default
+uv run python main.py --temperature 5.0   # flat: weak signal
+
+# Or run all three with the dedicated notebook:
+#   ablation_temperature.ipynb
+```
+
+### Batch size ablation
+```bash
 uv run python main.py --batch-size 512
 uv run python main.py --batch-size 256
 uv run python main.py --batch-size 128
 uv run python main.py --batch-size 64
 uv run python main.py --batch-size 32
 
-# Shorter run for quick testing
-uv run python main.py --ssl-epochs 50
+# Or run all five with the dedicated notebook:
+#   ablation_batchsize.ipynb
 ```
 
-Alternatively, edit `config.py` directly to change any hyperparameter permanently.
+### Augmentation ablation
+```bash
+# Run all 9 strategies with the dedicated notebook:
+#   ablation_augmentation.ipynb
+# Or test one at a time:
+uv run python main.py --augmentation crop --skip-supervised
+uv run python main.py --augmentation best --skip-supervised
+```
 
 ## Output files
-
-After running, check these directories:
 
 ```
 results/
@@ -110,16 +167,15 @@ checkpoints/
 
 ## Experiment roadmap
 
-| # | Experiment | Status | Command |
-|---|---|---|---|
-| 1 | SimCLR SSL baseline + linear probing | Required | `python main.py` |
-| 2 | Supervised learning baseline | Required | `python main.py` |
-| 3 | Random frozen backbone (lower bound) | Optional | TBD |
-| 4 | Temperature ablation (0.1, 0.5, 5.0) | Optional | `--temperature X` |
-| 5 | Batch size ablation (32 → 512) | Optional | `--batch-size X` |
-| 6 | No projector head (use backbone output for loss) | Optional | TBD |
-| 7 | Use projector output as representation | Optional | TBD |
-| 8 | Transfer to CIFAR-100 / STL-10 | Optional | TBD |
+| # | Experiment | Command / Notebook |
+|---|---|---|
+| 1 | SimCLR SSL + linear probing | `python main.py` |
+| 2 | Supervised learning baseline | `python main.py` |
+| 3 | Random frozen backbone (lower bound) | `python main.py --random-baseline` |
+| 4 | Temperature ablation | `ablation_temperature.ipynb` |
+| 5 | Batch size ablation | `ablation_batchsize.ipynb` |
+| 6 | Augmentation strategy ablation | `ablation_augmentation.ipynb` |
+| 7 | Multi-dataset / transfer learning | `--dataset stl10` / `flowers102` |
 
 ## Hyperparameters (from `config.py`)
 
@@ -127,8 +183,9 @@ checkpoints/
 |---|---|---|
 | SSL epochs | 200 | Full SSL training duration |
 | Batch size | 256 | Reduce if GPU memory is limited |
-| Optimizer | Adam | Learning rate 3e-4, weight decay 1e-6 |
+| Optimizer | Adam | LR 3e-4, weight decay 1e-6 |
 | Temperature | 0.5 | NT-Xent loss scaling factor |
+| Augmentation | best | crop + flip + colour + grayscale |
 | Projector | 512 → 512 → 128 | Two-layer MLP |
 | kNN k | 20 | Neighbors for kNN monitor |
 | kNN interval | every 5 epochs | How often to run kNN check |
@@ -136,7 +193,7 @@ checkpoints/
 
 ## References
 
-- SimCLR paper: Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (2020). https://arxiv.org/abs/2002.05709
-- ResNet: He et al., "Deep Residual Learning for Image Recognition" (2016).
+- SimCLR: Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations," ICML 2020. https://arxiv.org/abs/2002.05709
+- ResNet: He et al., "Deep Residual Learning for Image Recognition," CVPR 2016.
 - PyTorch: https://pytorch.org
 - torchvision: https://pytorch.org/vision
