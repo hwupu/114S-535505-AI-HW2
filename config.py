@@ -6,10 +6,24 @@ just change a value here instead of hunting through multiple files.
 """
 
 # ---------------------------------------------------------------------------
-# Data
+# Dataset
 # ---------------------------------------------------------------------------
-DATA_DIR = "./data"          # CIFAR-10 will be auto-downloaded here
-NUM_CLASSES = 10             # CIFAR-10 has 10 classes
+# Choose which dataset to use for all experiments.
+# Supported: 'cifar10', 'stl10', 'flowers102', 'food101'
+#
+# Notes:
+#   - All datasets are resized to 32x32 to match the modified ResNet-18.
+#   - STL-10 uses 105k images (5k labeled + 100k unlabeled) for SSL training.
+#   - Flowers-102 / Food-101 are for transfer learning: train SSL on CIFAR-10
+#     first, then run linear probing on these datasets.
+DATASET = 'cifar10'
+
+# Number of classes — derived automatically from DATASET.
+# If you add a custom dataset, set this manually.
+_CLASS_COUNTS = {'cifar10': 10, 'stl10': 10, 'flowers102': 102, 'food101': 101}
+NUM_CLASSES = _CLASS_COUNTS.get(DATASET, 10)
+
+DATA_DIR = "./data"
 
 # ---------------------------------------------------------------------------
 # SSL Training (SimCLR)

@@ -1,5 +1,5 @@
 """
-main.py — Entry point for AI HW2: SimCLR Self-Supervised Learning on CIFAR-10.
+main.py — Entry point for AI HW2: SimCLR Self-Supervised Learning.
 
 This script runs two required experiments and saves results for your report:
 
@@ -13,11 +13,13 @@ This script runs two required experiments and saves results for your report:
     - Provides a direct accuracy comparison against SSL + linear probing.
 
 Usage examples:
-  python main.py                      # Run both experiments (default settings)
-  python main.py --batch-size 128     # Smaller batch if GPU memory is limited
-  python main.py --temperature 0.1    # Ablation: sharp temperature
-  python main.py --temperature 5.0    # Ablation: flat temperature
-  python main.py --skip-supervised    # Run SSL only (skips experiment 2)
+  python main.py                           # CIFAR-10, both experiments
+  python main.py --dataset stl10           # Use STL-10 instead
+  python main.py --dataset flowers102      # Use Flowers-102 (transfer learning)
+  python main.py --dataset food101         # Use Food-101 (transfer learning)
+  python main.py --batch-size 128          # Smaller batch if GPU memory is limited
+  python main.py --temperature 0.1         # Ablation: sharp temperature
+  python main.py --skip-supervised         # Run SSL only (skips experiment 2)
 
 Output files (in ./results/):
   ssl_curves.png    — Loss and kNN accuracy during SSL training
@@ -126,6 +128,8 @@ def main():
         description="AI HW2: SimCLR on CIFAR-10",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument("--dataset",         type=str,   default=None,
+                        help="Dataset to use: cifar10 (default), stl10, flowers102, food101")
     parser.add_argument("--batch-size",      type=int,   default=None,
                         help="Override SSL_BATCH_SIZE from config.py")
     parser.add_argument("--temperature",     type=float, default=None,
@@ -139,6 +143,10 @@ def main():
     args = parser.parse_args()
 
     # Apply command-line overrides to config
+    if args.dataset     is not None:
+        config.DATASET = args.dataset.lower()
+        from dataset import get_dataset_config
+        config.NUM_CLASSES = get_dataset_config(config.DATASET)['num_classes']
     if args.batch_size  is not None: config.SSL_BATCH_SIZE = args.batch_size
     if args.temperature is not None: config.TEMPERATURE    = args.temperature
     if args.ssl_epochs  is not None: config.SSL_EPOCHS     = args.ssl_epochs
@@ -151,7 +159,8 @@ def main():
     os.makedirs(config.RESULTS_DIR,    exist_ok=True)
 
     print("\n" + "="*65)
-    print("  AI HW2: SimCLR Self-Supervised Learning on CIFAR-10")
+    print("  AI HW2: SimCLR Self-Supervised Learning")
+    print(f"  Dataset    : {config.DATASET}  ({config.NUM_CLASSES} classes)")
     print(f"  Batch size : {config.SSL_BATCH_SIZE}")
     print(f"  Temperature: {config.TEMPERATURE}")
     print(f"  SSL epochs : {config.SSL_EPOCHS}")
@@ -163,11 +172,11 @@ def main():
     # Load data
     # ------------------------------------------------------------------
     print("\nPreparing data loaders...")
-    ssl_loader             = get_ssl_loader(config.DATA_DIR, config.SSL_BATCH_SIZE,
-                                            config.NUM_WORKERS)
+    ssl_loader             = get_ssl_loader(config.DATASET, config.DATA_DIR,
+                                            config.SSL_BATCH_SIZE, config.NUM_WORKERS)
     eval_train_loader, \
-    eval_test_loader       = get_eval_loaders(config.DATA_DIR, config.SSL_BATCH_SIZE,
-                                              config.NUM_WORKERS)
+    eval_test_loader       = get_eval_loaders(config.DATASET, config.DATA_DIR,
+                                              config.SSL_BATCH_SIZE, config.NUM_WORKERS)
 
     # ------------------------------------------------------------------
     # Experiment 1: SimCLR SSL Training + Linear Probing
@@ -224,7 +233,7 @@ def main():
         print("="*65)
 
         sl_train_loader, sl_test_loader = get_supervised_loaders(
-            config.DATA_DIR, config.SSL_BATCH_SIZE, config.NUM_WORKERS
+            config.DATASET, config.DATA_DIR, config.SSL_BATCH_SIZE, config.NUM_WORKERS
         )
 
         sl_model = SupervisedModel(num_classes=config.NUM_CLASSES).to(device)
@@ -289,6 +298,7 @@ def main():
     # Write summary to a text file for easy reference when writing your report
     summary_path = os.path.join(config.RESULTS_DIR, "summary.txt")
     with open(summary_path, "w") as f:
+        f.write(f"Dataset             : {config.DATASET}\n")
         f.write(f"Temperature         : {config.TEMPERATURE}\n")
         f.write(f"Batch size          : {config.SSL_BATCH_SIZE}\n")
         f.write(f"SSL epochs          : {config.SSL_EPOCHS}\n")
